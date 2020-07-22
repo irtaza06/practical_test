@@ -1,0 +1,55 @@
+[
+    {
+        "ParameterKey": "ScalingMin",
+        "ParameterValue": "1"
+    },
+    {
+        "ParameterKey": "ScalingMax",
+        "ParameterValue": "3"
+    },
+    {
+        "ParameterKey": "DesiredCapacity",
+        "ParameterValue": "2"
+    },
+    {  "ParameterKey": "HealthCheckGracePeriod",
+        "ParameterValue": "0"
+    },
+    {  "ParameterKey": "HealthCheckType",
+        "ParameterValue": "EC2"
+    },
+    {  "ParameterKey": "TerminatedInstances",
+        "ParameterValue": "OldestLaunchConfiguration, Default"
+    },
+    {  "ParameterKey": "ScalingNotificationTopic",
+        "ParameterValue": "None"
+    },
+    {  "ParameterKey": "ScalingCreateTimeOut",
+        "ParameterValue": "PT5M"
+    },
+    {  "ParameterKey": "ScalingUpdateTimeOut",
+        "ParameterValue": "PT0S"
+    },
+    {  "ParameterKey": "EC2ScaleUpCooldown",
+        "ParameterValue": "300"
+    },
+    {  "ParameterKey": "EC2ScaleDownCooldown",
+        "ParameterValue": "300"
+    },
+    {  "ParameterKey": "EC2ScaleUpAdjustment",
+        "ParameterValue": "1"
+    },
+    {  "ParameterKey": "EC2ScaleDownAdjustment",
+        "ParameterValue": "1"
+    },
+    {  "ParameterKey": "NFSLocation",
+        "ParameterValue": "nfs.example.com:/data"
+    },
+    {  "ParameterKey": "AppSubnet",
+        "ParameterValue": "None"
+    },
+    {  "ParameterKey": "ASGSecurityGroupList",
+        "ParameterValue": "None"
+    }
+]
+
+

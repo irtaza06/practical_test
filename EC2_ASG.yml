@@ -1,0 +1,173 @@
+#----------------------------------------------------------------------------------------
+Description: >
+    -----------Irtaza Hassan / irtazahassan06@gmail.com---------------
+    This template creates a lunch configuration and an autoscaling group 
+    along with create/update policies. One can define region and evironment 
+    in the mappings section to make it usable for other regions etc.
+    It deploy resources in a default VPC.
+#Create mappings 
+Mappings:
+  InstanceMap:
+    eu-central-1:
+      test: t2.micro
+  AMIMap:
+    eu-central-1:
+      test: ami-00edb93a4d68784e3
+#----------------------------------------------------------------------------------------
+#Define parameters with default values which will be overwritten when seperate parameter file is provided
+Parameters:
+    ScalingMin:
+        Description: The minimum size of the Auto Scaling group.
+        Type: String
+        Default: 1
+    ScalingMax:
+        Description: The maximum size of the Auto Scaling group.
+        Type: String
+        Default: 2
+    DesiredCapacity:
+        Description: The desired capacity is the initial capacity of the Auto Scaling group at the time of its creation and the capacity it attempts to maintain.
+        Type: String
+        Default: 1
+    HealthCheckGracePeriod:
+        Description: The amount of time, in seconds, that Amazon EC2 Auto Scaling waits before checking the health status of an EC2 instance that has come into service.
+        Type: Number
+        Default: 0
+    HealthCheckType:
+        Description: The service to use for the health checks. The valid values are EC2 (default) and ELB.
+        Type: String
+        Default: EC2
+    TerminatedInstances:
+        Description: Please enter the IP range (CIDR notation) for the private subnet in the second Availability Zone
+        Type: CommaDelimitedList
+        Default: "OldestLaunchConfiguration, Default"
+    ScalingNotificationTopic:
+        Description: The Amazon Resource Name (ARN) of the Amazon Simple Notification Service (Amazon SNS) topic. 
+        Type: String
+        Default: None
+    ScalingCreateTimeOut:
+        Description: The length of time that AWS CloudFormation waits for the number of signals that was specified in the Count property.
+        Type: String
+        Default: PT5M
+    ScalingUpdateTimeOut:
+        Description: The amount of time that AWS CloudFormation pauses after making a change to a batch of instances to give those instances time to start software applications
+        Type: String
+        Default: PT0S
+    EC2ScaleUpCooldown:
+        Description: The duration of the scale-up policy's cooldown period, in seconds. 
+        Type: String
+        Default: 300
+    EC2ScaleDownCooldown:
+        Description: The duration of the scale-down policy's cooldown period, in seconds. 
+        Type: String
+        Default: 300
+    EC2ScaleUpAdjustment:
+        Description: The amount by which to scale up, based on the specified adjustment type (ChangeInCapacity).
+        Type: Number
+        Default: 1
+    EC2ScaleDownAdjustment:
+        Description: The amount by which to scale down , based on the specified adjustment type (ChangeInCapacity).
+        Type: Number
+        Default: 1
+    NFSLocation:
+        Description: The location of the NFS storage
+        Type: String
+        Default: nfs.example.com:/data
+    AppSubnet:
+        Description: The app subnet ID 
+        Type: String
+        Default: None
+    ASGSecurityGroupList:
+        Description: Th list of ASG security groups 
+        Type: String
+        Default: None
+#----------------------------------------------------------------------------------------
+#Create resources
+Resources:
+
+#----------------------------------------------------------------------------------------
+#Create launch configuration to be used to create autoscaling group
+  LaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+        ImageId: !FindInMap [AMIMap, !Ref "AWS::Region", test]
+        InstanceType: !FindInMap [InstanceMap,!Ref "AWS::Region", test]
+#Bootstrap cfn-signal using userdata
+#The cfn-signal helper script signals AWS CloudFormation to indicate whether Amazon EC2 instances have been successfully created or updated.
+        UserData:
+          "Fn::Base64": !Sub |
+              #!/bin/bash -xe
+              yum update -y aws-cfn-bootstrap
+              /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource EC2AutoScalingGroup --region ${AWS::Region}
+#----------------------------------------------------------------------------------------
+#Create autoscaling group
+  EC2AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AvailabilityZones:
+        Fn::GetAZs: ''
+#To specify subnets, use following commented property and provide a list of subnet IDs for a virtual private cloud (VPC).
+#     VPCZoneIdentifier:
+      LaunchConfigurationName:
+        Ref: LaunchConfig
+      DesiredCapacity: !Ref DesiredCapacity
+      MinSize: !Ref ScalingMin
+      MaxSize: !Ref ScalingMax
+      HealthCheckGracePeriod: !Ref HealthCheckGracePeriod
+      HealthCheckType: !Ref HealthCheckType
+      TerminationPolicies: !Ref TerminatedInstances
+#----------------------------------------------------------------------------------------
+#Create creation policy
+    CreationPolicy:
+      ResourceSignal:
+        Count: '1'
+        Timeout: !Ref ScalingCreateTimeOut
+#----------------------------------------------------------------------------------------
+#Create update policy
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MinInstancesInService: '1'
+        MaxBatchSize: '2'
+        # how much time to wait for the signal
+        PauseTime: !Ref ScalingUpdateTimeOut
+        WaitOnResourceSignals: 'true'
+        # we can suspend processes during the update
+        # SuspendProcesses:
+        # - list of processes...
+      AutoScalingScheduledAction:
+        # Prevent Scheduled Actions from modifying min/max/desired for CloudFormation
+          IgnoreUnmodifiedGroupSizeProperties: 'true'
+#Enable notifications using SNS topic/subscription
+#      NotificationConfigurations:
+#          NotificationTypes: 
+#          - TEST_NOTIFICATION
+#          TopicARN: !Ref ScalingNotificationTopic
+
+#----------------------------------------------------------------------------------------
+#Create scale Up/Down policies using simple scaling policy
+  ScaleUpPolicy: 
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties: 
+      AdjustmentType: "ChangeInCapacity"
+      PolicyType: "SimpleScaling"
+      Cooldown: !Ref EC2ScaleUpCooldown
+      AutoScalingGroupName: 
+        Ref: "EC2AutoScalingGroup"
+      ScalingAdjustment: !Ref EC2ScaleUpAdjustment
+  ScaleDownPolicy: 
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties: 
+      AdjustmentType: "ChangeInCapacity"
+      PolicyType: "SimpleScaling"
+      Cooldown: !Ref EC2ScaleDownCooldown
+      AutoScalingGroupName: 
+        Ref: "EC2AutoScalingGroup"
+      ScalingAdjustment: !Ref EC2ScaleDownAdjustment
+#----------------------------------------------------------------------------------------
+#Output physical ID of the autoscaling group
+Outputs:
+
+    EC2AutoScalingGroupID:
+        Description: A reference to the created VPC
+        Value: !Ref EC2AutoScalingGroup
+        Export:
+          Name: !Sub EC2ASG-ID
